@@ -4,6 +4,6 @@
     "build": "hugo -s exampleSite"
   },
   "dependencies": {
-    "npm": "^8.0.0"
+    "npm": "^9.0.0"
   }
 }
