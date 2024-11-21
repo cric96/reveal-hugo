@@ -54,7 +54,7 @@
 </script>
 <!-- load custom plugins locally only (not CDN since many plugins won't exist there) -->
 {{ range $.Param "reveal_hugo.plugins" }}
-<script type="text/javascript" src="{{ . | relURL }}"></script>
+<script type="text/javascript" src="{{ .source | relURL }}"></script>
 {{ end }}
 
 {{/*  check if we need to load mermaid and its render trick.
