@@ -1,7 +1,7 @@
 version: 2.1
 orbs:
   node: circleci/node@7.1.0
-  go: circleci/go@2.2.5
+  go: circleci/go@3.0.0
 
 jobs:
   build-and-test:
