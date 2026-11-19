@@ -74,9 +74,15 @@
 {{ end }}
 
 {{ if $hasMermaid }}
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.min.js"></script>
   <script>
-    mermaid.initialize({{ index ($.Param "reveal_hugo.mermaid") 0 }});
+    let mermaidConfig = {{ index ($.Param "reveal_hugo.mermaid") 0 }};
+    mermaid.initialize(mermaidConfig);
+    // web fonts are downloaded only when first used: request the diagram font explicitly,
+    // otherwise text gets measured with a fallback font
+    let mermaidFontLoaded = mermaidConfig.fontFamily
+      ? document.fonts.load(`1em "${mermaidConfig.fontFamily}"`).catch(() => {})
+      : Promise.resolve();
 
     // mermaid.init/run derives SVG ids from Date.now(): diagrams rendered within the same
     // millisecond get the same id, and get drawn into each other. Hence, we render
@@ -106,6 +112,7 @@
           // mark immediately, so that concurrent events (ready, slidechanged) do not render twice
           mermaidElem.setAttribute('data-processed', 'true');
           mermaidQueue = mermaidQueue
+            .then(() => mermaidFontLoaded)
             .then(() => document.fonts.ready)
             .then(() => renderDiagram(mermaidElem));
       });
