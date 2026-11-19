@@ -78,17 +78,36 @@
   <script>
     mermaid.initialize({{ index ($.Param "reveal_hugo.mermaid") 0 }});
 
-    let render = (event) => {
-      let mermaidElems = event.currentSlide.querySelectorAll('.mermaid');
-      if (!mermaidElems.length){
-          return
+    // mermaid.init/run derives SVG ids from Date.now(): diagrams rendered within the same
+    // millisecond get the same id, and get drawn into each other. Hence, we render
+    // sequentially, with ids from our own counter, after fonts are loaded (text is measured).
+    let mermaidCounter = 0;
+    let mermaidQueue = Promise.resolve();
+    let decodeEntities = (html) => {
+      let textarea = document.createElement('textarea');
+      textarea.innerHTML = html;
+      return textarea.value;
+    };
+    let renderDiagram = async (mermaidElem) => {
+      let source = decodeEntities(mermaidElem.innerHTML).trim().replace(/<br\s*\/?>/gi, '<br/>');
+      try {
+        let { svg, bindFunctions } = await mermaid.render(`mermaid-diagram-${mermaidCounter++}`, source);
+        mermaidElem.innerHTML = svg;
+        if (bindFunctions) {
+          bindFunctions(mermaidElem);
+        }
+      } catch (error) {
+        console.error('Mermaid rendering failed', error, mermaidElem);
       }
+    };
+    let render = (event) => {
+      let mermaidElems = event.currentSlide.querySelectorAll('.mermaid:not([data-processed])');
       mermaidElems.forEach(mermaidElem => {
-          let processed = mermaidElem.getAttribute('data-processed');
-          if (!processed){
-              // https://github.com/mermaid-js/mermaid/issues/311#issuecomment-332557344
-              mermaid.init(undefined, mermaidElem);
-          }
+          // mark immediately, so that concurrent events (ready, slidechanged) do not render twice
+          mermaidElem.setAttribute('data-processed', 'true');
+          mermaidQueue = mermaidQueue
+            .then(() => document.fonts.ready)
+            .then(() => renderDiagram(mermaidElem));
       });
     };
     // support current page reload with possible mermaid element
