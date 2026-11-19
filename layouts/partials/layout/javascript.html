@@ -94,16 +94,44 @@
       textarea.innerHTML = html;
       return textarea.value;
     };
+    // reveal.js scales `.slides` with a CSS transform, and mermaid measures labels with
+    // getBoundingClientRect, which includes that transform. Rendering outside of `.reveal`, instead,
+    // measures labels without the slide fonts (e.g., a different weight), and they get cut once displayed.
+    // Hence, we render in a hidden box placed in `.reveal` (same fonts) but outside of `.slides` (no scaling).
+    let createSandbox = (mermaidElem) => {
+      let style = getComputedStyle(mermaidElem);
+      let sandbox = document.createElement('div');
+      // same classes as the diagram container, so that CSS rules such as `.mermaid svg { ... }` apply
+      sandbox.className = mermaidElem.className;
+      sandbox.style.cssText = 'position: absolute; top: 0; left: 0; visibility: hidden;';
+      for (let property of ['font-family', 'font-size', 'font-weight', 'letter-spacing']) {
+        sandbox.style.setProperty(property, style.getPropertyValue(property));
+      }
+      // computed line heights are absolute: turn them back into a ratio, labels use their own font size
+      let lineHeight = parseFloat(style.lineHeight) / parseFloat(style.fontSize);
+      if (lineHeight) {
+        sandbox.style.lineHeight = lineHeight;
+      }
+      (document.querySelector('.reveal') || document.body).appendChild(sandbox);
+      return sandbox;
+    };
     let renderDiagram = async (mermaidElem) => {
       let source = decodeEntities(mermaidElem.innerHTML).trim().replace(/<br\s*\/?>/gi, '<br/>');
+      let sandbox = createSandbox(mermaidElem);
       try {
-        let { svg, bindFunctions } = await mermaid.render(`mermaid-diagram-${mermaidCounter++}`, source);
+        // labels may inherit a slide web font, which is downloaded only when first used:
+        // make sure it is available before mermaid measures the text
+        let font = getComputedStyle(sandbox);
+        await document.fonts.load(`${font.fontStyle} ${font.fontWeight} ${font.fontSize} ${font.fontFamily}`).catch(() => {});
+        let { svg, bindFunctions } = await mermaid.render(`mermaid-diagram-${mermaidCounter++}`, source, sandbox);
         mermaidElem.innerHTML = svg;
         if (bindFunctions) {
           bindFunctions(mermaidElem);
         }
       } catch (error) {
         console.error('Mermaid rendering failed', error, mermaidElem);
+      } finally {
+        sandbox.remove();
       }
     };
     let render = (event) => {
